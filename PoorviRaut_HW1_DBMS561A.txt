@@ -1,0 +1,120 @@
+Name : Poorvi Rajendra Raut
+CWID: 20009560
+
+
+--Query1
+with t1 as (
+select prod as "PRODUCT",max(quant) as "MAX_Q",min(quant) as "MIN_Q",avg(quant) as "AVG_Q" from sales group by prod
+),
+t2 as (
+  select t1."PRODUCT", t1."MIN_Q", sales.date as"MIN_DATE", sales.state as "ST",sales.cust as "MIN_CUST" from sales, t1
+  where sales.prod= t1."PRODUCT" and sales.quant=t1."MIN_Q"
+),
+t3 as (
+select t1."PRODUCT", t1."MAX_Q", sales.date as "MAX_DATE", sales.state as "ST",sales.cust as "MAX_CUST" from sales,t1
+  where sales.prod= t1."PRODUCT" and sales.quant=t1."MAX_Q"
+),
+t4 as(
+select prod, avg(quant) as "AVG_Q" from sales group by prod
+)
+select  t2."PRODUCT", t2."MIN_Q",t2."MIN_DATE",t2."ST",t2."MIN_CUST",t3."MAX_Q",t3."MAX_DATE",t3."ST",t3."MAX_CUST",t4."AVG_Q"
+from t2, t3,t4 where t2."PRODUCT"=t3."PRODUCT" and t3."PRODUCT"=t4.prod
+
+--Query 2
+with t1 as (
+select cust as "CUSTOMER", prod as "PRODUCT", quant as "NY_MAX", day as "NY_DAY", month as "NY_MONTH", year as "NY_YEAR"
+from sales s
+where quant = (select max(quant)
+from sales
+where (cust, prod) = (s.cust, s.prod) and state = 'NY' )
+),
+t2 as (
+select cust as "CUSTOMER", prod as "PRODUCT", quant as "NJ_MIN", day as "NJ_DAY", month as "NJ_MONTH", year as "NJ_YEAR"
+from sales s
+where quant = (select min(quant)
+from sales
+where (cust, prod) = (s.cust, s.prod) and state ='NJ' and year > 2000)
+),
+t3 as (
+select cust as "CUSTOMER", prod as "PRODUCT", quant as "CT_MIN", day as "CT_DAY", month as "CT_MONTH", year as "CT_YEAR"
+from sales s
+where quant = (select min(quant)
+from sales
+where (cust, prod) = (s.cust, s.prod) and state = 'CT'and year > 2000)
+)
+select * from t1 natural full join t2 natural full join t3 
+order by "CUSTOMER","PRODUCT"
+
+
+--Query 3
+with t1 as
+(
+select "month" ,state,
+sum(quant) as "sum_q"
+from sales 
+group by "month","state"  
+),
+t2 as(
+select "month", max(sum_q) as "MOST_TOTAL_POP_Q",min(sum_q) as "LEAST_TOTAL_POP_Q"
+from t1
+group by "month"
+),
+t3 as (
+select t1."state" as "MOST_POPULAR_ST",t2."month" , t2."MOST_TOTAL_POP_Q" from t1,t2
+where t1."sum_q"=t2."MOST_TOTAL_POP_Q"
+),
+t4 as(
+select t1."state" as "LEAST_POPULAR_ST",t2."month",t2."LEAST_TOTAL_POP_Q" from t1,t2
+where t1."sum_q"=t2."LEAST_TOTAL_POP_Q"
+)
+select * from t3 natural full join t4
+order by "month"
+
+-- Query 4
+with t1 as 
+(select cust, prod, quant, state
+from sales s
+where quant =
+(select max(quant) 
+from sales
+where (cust, prod) = (s.cust, s.prod))
+order by cust, quant desc),
+  t2 as	
+(select distinct on (cust) cust, t1.prod as MOST_FAV_PROD, t1.quant, t1.state as MOST_FAV_ST
+from t1
+order by cust,quant asc),
+  t3 as	
+(select distinct on (cust) cust, t1.prod as LEAST_FAV_PROD, t1.quant, t1.state as LEAST_FAV_ST
+from t1
+order by cust,quant asc)
+select t2.cust, t2.MOST_FAV_PROD, t3.LEAST_FAV_PROD, t2.MOST_FAV_ST, t3.LEAST_FAV_ST
+from t2 natural join t3 
+order by cust
+
+ 
+--Query 5
+select s.cust as "CUSTOMER",s.prod as "PRODUCT", "Q1_AVG", "Q2_AVG", "Q3_AVG", "Q4_AVG", "AVERAGE", "TOTAL", "COUNT"
+from
+(select cust, prod, (sum(quant)) as "Q1_AVG" 
+from sales
+where sales.month in (1, 2, 3) group by cust, prod) as Q1 
+right outer join
+(select cust, prod, (sum(quant)) as "Q2_AVG" 
+from sales
+where sales.month in (4, 5, 6) group by cust, prod) as Q2 
+on Q1.cust = Q2.cust and Q1.prod = Q2.prod
+right outer join
+(select cust, prod,(sum(quant)) as "Q3_AVG"
+from sales
+where sales.month in (7, 8, 9) group by cust, prod) as Q3
+on Q2.cust = Q3.cust and Q2.prod = Q3.prod
+right outer join
+(select cust, prod, (sum(quant)) as "Q4_AVG" 
+from sales 
+where sales.month IN (10, 11, 12) group by cust, prod) as Q4 
+on Q3.cust = Q4.cust AND q3.prod = q4.prod
+right outer join
+(select cust, prod, (sum(quant)) as "AVERAGE", sum(quant) as "TOTAL", count(*) as "COUNT"
+from sales group by cust, prod) as s
+on Q4.cust = s.cust and Q4.prod = s.prod
+order by "CUSTOMER"
